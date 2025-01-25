@@ -6,18 +6,30 @@ import { useState } from 'react';
 function App() {
   const [data, setData] = useState([]);
 
-  // Update the data when a new WebSocket message is received
+  const companyNames = ["A", "B", "C", "D", "E"];
   const updateData = (newData) => {
     setData((prevData) => [
       ...prevData,
-      { name: new Date().toLocaleTimeString(), uv: newData.uv, pv: newData.pv },
+      { 
+        time: new Date(newData.timestamp).toLocaleTimeString(),  // Use the timestamp from the new data
+        askPriceAvg: newData.askPriceAvg,  // Use the actualPriceAvg from the new data
+      },
     ]);
   };
+
   return (
     <div className="App">
       <header className="App-header">
         <CustomWebSocket updateData={updateData} />
-        <DataVisualization data={data} />
+        <div className="grid-container">
+          {companyNames.map((company, index) => (
+            <div key={index} className="grid-item">
+              <h3 >Graph for Company {company}</h3>
+              <DataVisualization height={500} width={300} data={data} companyName={company} />
+            </div>
+          ))}
+        </div>
+        
       </header>
     </div>
   );
