@@ -6,7 +6,7 @@ from flask_sock import Sock
 app = Flask(__name__)
 sock = Sock(app)
 
-data_path = "./TrainingData/Period1/A"
+data_path = "./TrainingData/Period8/A"
 market_data = pd.read_csv(f'{data_path}/market_data_A_0.csv')
 trade_data = pd.read_csv(f'{data_path}/trade_data__A.csv')
 
