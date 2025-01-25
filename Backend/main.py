@@ -1,24 +1,22 @@
 import time
 import pandas as pd
-from flask import Flask
+from flask import Flask, json
 from flask_sock import Sock
 
 app = Flask(__name__)
 sock = Sock(app)
 
-# Load data
 data_path = "./TrainingData/Period1/A"
 market_data = pd.read_csv(f'{data_path}/market_data_A_0.csv')
 trade_data = pd.read_csv(f'{data_path}/trade_data__A.csv')
 
-# Ensure proper formatting
 market_data['timestamp'] = pd.to_datetime(market_data['timestamp'])
 trade_data['timestamp'] = pd.to_datetime(trade_data['timestamp'])
 market_data = market_data.sort_values(by='timestamp')
 trade_data = trade_data.sort_values(by='timestamp')
 
-# Define start time
 start_time = pd.Timestamp("08:10:00")
+accumulated_data = []
 
 def align_and_aggregate(market_data, trade_data, start_time, group_by='1S'):
     market_data = market_data[market_data['timestamp'] >= start_time]
@@ -35,15 +33,35 @@ def align_and_aggregate(market_data, trade_data, start_time, group_by='1S'):
     combined_data = pd.concat([market_data, trade_data])
 
     aggregated = combined_data.set_index('grouped_timestamp').resample(group_by).agg({
-        'bidVolume': 'sum',
-        'askVolume': 'sum',
-        'volume': 'sum',
-        'bidPrice': 'mean',
-        'askPrice': 'mean',
-        'price': 'mean'
+        'bidVolume': ['sum', 'mean'],
+        'askVolume': ['sum', 'mean'],
+        'volume': ['sum', 'mean'],
+        'bidPrice': ['sum', 'mean'],
+        'askPrice': ['sum', 'mean'],
+        'price': ['sum', 'mean']
     }).fillna(0).reset_index()
 
-    aggregated.rename(columns={'grouped_timestamp': 'timestamp'}, inplace=True)
+    # Flatten column names
+    aggregated.columns = ['_'.join(col).rstrip('_') if isinstance(col, tuple) else col for col in aggregated.columns]
+
+    # Rename columns
+    aggregated.rename(columns={
+        'grouped_timestamp': 'timestamp',
+        'bidVolume_sum': 'bidVolumeSum',
+        'bidVolume_mean': 'bidVolumeAvg',
+        'askVolume_sum': 'askVolumeSum',
+        'askVolume_mean': 'askVolumeAvg',
+        'volume_sum': 'actualVolumeSum',
+        'volume_mean': 'actualVolumeAvg',
+        'bidPrice_sum': 'bidPriceSum',
+        'bidPrice_mean': 'bidPriceAvg',
+        'askPrice_sum': 'askPriceSum',
+        'askPrice_mean': 'askPriceAvg',
+        'price_sum': 'actualPriceSum',
+        'price_mean': 'actualPriceAvg'
+    }, inplace=True)
+
+    # Format timestamp
     aggregated['timestamp'] = aggregated['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
     return aggregated
@@ -56,12 +74,17 @@ def index():
 
 @sock.route('/stream')
 def stream(sock):
-    # Stream the combined and aggregated data
     for _, row in combined_data.iterrows():
+        row_dict = row.to_dict()
+        accumulated_data.append(row_dict)
+
         row_json = row.to_json()
         print(f"Sending: {row_json}")
         sock.send(row_json)
-        time.sleep(1)  # Simulate real-time streaming
+
+        with open("streamed_data.json", "w") as json_file:
+            json.dump(accumulated_data, json_file, indent=4)
+        time.sleep(1)
 
 if __name__ == "__main__":
-    app.run(host='127.0.0.1', port=5000)
+    app.run(host='127.0.0.1', port=5000, debug=True)
