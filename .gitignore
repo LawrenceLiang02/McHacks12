@@ -4,6 +4,7 @@
 ### Project Specific ###
 .TrainingData
 TrainingData/
+
 ### Flask ###
 instance/*
 !instance/.gitignore
