@@ -1,22 +1,23 @@
 import logo from './logo.svg';
 import './App.css';
-
+import { DataVisualization } from './components/data_visualization' 
+import { CustomWebSocket } from './components/websocket'
+import { useState } from 'react';
 function App() {
+  const [data, setData] = useState([]);
+
+  // Update the data when a new WebSocket message is received
+  const updateData = (newData) => {
+    setData((prevData) => [
+      ...prevData,
+      { name: new Date().toLocaleTimeString(), uv: newData.uv, pv: newData.pv },
+    ]);
+  };
   return (
     <div className="App">
       <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
+        <CustomWebSocket updateData={updateData} />
+        <DataVisualization data={data} />
       </header>
     </div>
   );
