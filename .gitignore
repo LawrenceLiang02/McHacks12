@@ -6,7 +6,8 @@
 ### Project Specific ###
 .TrainingData
 TrainingData/
-
+Period*
+.csv
 ### Flask ###
 instance/*
 !instance/.gitignore
