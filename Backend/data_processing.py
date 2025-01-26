@@ -4,7 +4,7 @@ import os
 from chart_plotter import plot_chart
 
 markets = ["A", "B", "C", "D", "E"]
-period = 2
+period = 1
 
 for market in markets:
     data_dir = f"TrainingData/Period{str(period)}/{market}/"
@@ -51,7 +51,7 @@ for market in markets:
             return "Hold"
 
     merged_df['label'] = merged_df.apply(label_entry, axis=1)
-
+    merged_df['market'] = market
     label_counts = merged_df['label'].value_counts()
     print(f"Market {market} Label Distribution:\n{label_counts}")
 
@@ -63,7 +63,7 @@ for market in markets:
 
     outputFileName = os.path.join(output_folder, f"{market}.csv")
 
-    output_columns = ['timestamp', 'price', 'volume', 'bidVolume', 'bidPrice', 'askVolume', 'askPrice', 'spread', 'momentum', 'volume_ratio', 'label']
+    output_columns = ['timestamp', 'price', 'volume', 'bidVolume', 'bidPrice', 'askVolume', 'askPrice', 'spread', 'momentum', 'volume_ratio', 'label', 'market']
     merged_df[output_columns].to_csv(outputFileName, index=False)
 
     print(f"Market {market} labeled data has been saved to {outputFileName}.")
