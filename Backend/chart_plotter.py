@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def plot_chart(file_path):
+def plot_chart(file_path, period, market):
     # Load the CSV file
     df = pd.read_csv(file_path)
 
@@ -20,7 +20,7 @@ def plot_chart(file_path):
     plt.plot(df[df['label'] == 'Sell']['timestamp'], df[df['label'] == 'Sell']['price'], color='red', label='Sell', lw=2)  # Red for Sell line
     plt.plot(df[df['label'] == 'Hold']['timestamp'], df[df['label'] == 'Hold']['price'], color='orange', label='Hold', lw=2, alpha=0.3)  # Orange for Hold line with less opacity
     # Adding title and labels
-    plt.title('Price Over Time with Buy/Sell/Hold Labels')
+    plt.title(f"Price Over Period {period} Company {market}")
     plt.xlabel('Timestamp')
     plt.ylabel('Price')
 

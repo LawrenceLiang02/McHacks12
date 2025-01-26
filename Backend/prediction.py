@@ -1,23 +1,30 @@
 import pandas as pd
 import numpy as np
 import os
-from chart_plotter import plot_chart
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+from flask import Flask, request, jsonify
+from flask_socketio import SocketIO, emit
+
+app = Flask(__name__)
+socketio = SocketIO(app)
 
 markets = ["A", "B", "C", "D", "E"]
-period = 2
+period = 2  # default period, can be updated via API
 
-for market in markets:
+# Function to preprocess and label data
+def preprocess_and_label_data(market, period):
     data_dir = f"TrainingData/Period{str(period)}/{market}/"
-
+    
     all_files = os.listdir(data_dir)
-
+    
     market_data_files = [file for file in all_files if "market_data" in file and file.endswith(".csv")]
     trade_data_files = [file for file in all_files if "trade_data" in file and file.endswith(".csv")]
-
+    
     bid_ask_data = pd.concat([pd.read_csv(os.path.join(data_dir, file)) for file in market_data_files], ignore_index=True)
-
     price_volume_data = pd.read_csv(os.path.join(data_dir, trade_data_files[0]))
-
+    
     bid_ask_df = pd.DataFrame(bid_ask_data, columns=["bidVolume", "bidPrice", "askVolume", "askPrice", "timestamp"])
     price_volume_df = pd.DataFrame(price_volume_data, columns=["price", "volume", "timestamp"])
 
@@ -30,12 +37,7 @@ for market in markets:
     bid_ask_df = bid_ask_df.sort_values('timestamp')
     price_volume_df = price_volume_df.sort_values('timestamp')
 
-    merged_df = pd.merge_asof(
-        price_volume_df,
-        bid_ask_df,
-        on='timestamp',
-        direction='backward'
-    )
+    merged_df = pd.merge_asof(price_volume_df, bid_ask_df, on='timestamp', direction='backward')
 
     merged_df['smoothed_price'] = merged_df['price'].rolling(window=10, min_periods=1).mean()
     merged_df['spread'] = merged_df['askPrice'] - merged_df['bidPrice']
@@ -52,21 +54,24 @@ for market in markets:
 
     merged_df['label'] = merged_df.apply(label_entry, axis=1)
 
-    label_counts = merged_df['label'].value_counts()
-    print(f"Market {market} Label Distribution:\n{label_counts}")
+    return merged_df
 
-    merged_df['timestamp'] = merged_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S.') + (merged_df['timestamp'].dt.microsecond / 100).astype(int).astype(str).str.zfill(4)
+# Function to train or test the model
+def train_or_test_model(market, period, mode="train"):
+    merged_df = preprocess_and_label_data(market, period)
+    
+    features = merged_df[['spread', 'momentum', 'volume_ratio']]
+    labels = merged_df['label']
+    
+    labels_encoded = labels.map({"Buy": 0, "Sell": 1, "Hold": 2}).values
 
-    output_folder = f"Period{str(period)}"
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
+    X_train, X_test, y_train, y_test = train_test_split(features, labels_encoded, test_size=0.2, random_state=42)
 
-    outputFileName = os.path.join(output_folder, f"{market}.csv")
+    model = RandomForestClassifier()
 
-    output_columns = ['timestamp', 'price', 'volume', 'bidVolume', 'bidPrice', 'askVolume', 'askPrice', 'spread', 'momentum', 'volume_ratio', 'label']
-    merged_df[output_columns].to_csv(outputFileName, index=False)
-
-    print(f"Market {market} labeled data has been saved to {outputFileName}.")
-
-    plot_chart(outputFileName, str(period), f"{market}_plot")
-
+    if mode == "train":
+        model.fit(X_train, y_train)
+        return f"Model trained for market {market}, period {period}"
+    elif mode == "test":
+        y_pred = model.predict(X_test)
+        return classification_report(y_test, y_pred)
