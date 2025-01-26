@@ -49,7 +49,7 @@ def predict_stock(latest, historical):
     else:
         return f"HOLD | {spread} | {momentum} | {volume_imbalance}"
 
-file = "./streamed_data copy.json"
+file = "./streamed_data.json"
 data_json = pd.read_json(file)
 
 for i in range(1, len(data_json)):  # Start from the second record to compare with previous data
