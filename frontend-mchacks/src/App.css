@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@layer components {
+  .stock-header-display {
+    @apply text-white bg-black w-full h-full text-center py-8 uppercase font-bold text-4xl
+  }
+}
