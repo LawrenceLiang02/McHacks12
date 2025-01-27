@@ -39,7 +39,7 @@ def prepare_data(data, is_test=False):
         data['label'] = data.apply(label_entry, axis=1)
         data['label'] = data['label'].astype(str)
 
-    features = data[['spread', 'momentum', 'volume_ratio', 'avg_price_per_second']]  # Include avg price as a feature
+    features = data[['smoothed_price', 'spread', 'momentum', 'volume_ratio']]  # Include avg price as a feature
     if is_test:
         return features
     else:
@@ -76,11 +76,13 @@ def train_and_evaluate(merged_df, model, output_folder, test_data=None):
     print("Classification report on Validation Set:")
     print(classification_report(y_val, y_pred, target_names=["Buy", "Sell", "Hold"]))
 
-    # Save the trained model to a file using pickle
-    model_filename = os.path.join(output_folder, 'trained_model.pkl')
-    with open(model_filename, 'wb') as model_file:
-        pickle.dump(model, model_file)
-    print(f"Model saved to {model_filename}")
+    try:
+        model_filename = os.path.join(output_folder, 'trained_model.pkl')
+        with open(model_filename, 'wb') as model_file:
+            pickle.dump(model, model_file)
+        print(f"Model saved to {model_filename}")
+    except Exception as e:
+        print(f"Error saving model: {e}")
 
     # If test data is provided, evaluate on the test set
     if test_data is not None:
@@ -93,14 +95,13 @@ def train_and_evaluate(merged_df, model, output_folder, test_data=None):
         test_data.to_csv(output_file, index=False)
         print(f"Test data predictions saved to {output_file}.")
 
-
 # Main execution
-model = RandomForestClassifier()
+model = RandomForestClassifier()  # Model creation
 
-# Define the base folder for the training data
 base_data_folder = "TrainingData"
 merged_df_all_periods = pd.DataFrame()  # Initialize an empty DataFrame to hold all the combined data
 timestamp_format = "%H:%M:%S.%f"
+
 # Loop through all periods and markets dynamically to accumulate data
 for period in os.listdir(base_data_folder):
     period_folder = os.path.join(base_data_folder, period)
@@ -111,47 +112,3 @@ for period in os.listdir(base_data_folder):
             
             if os.path.isdir(market_folder):  # Check if it's a valid market folder
                 # Get all relevant market data files
-                market_data_files = [file for file in os.listdir(market_folder) if "market_data" in file and file.endswith(".csv")]
-                
-                # Check if we found any market data files
-                if not market_data_files:
-                    print(f"No market data files found for {market} in {period}")
-                    continue  # Skip this market folder if no files found
-
-                # Load and process data if files exist
-                bid_ask_data = pd.concat([pd.read_csv(os.path.join(market_folder, file)) for file in market_data_files], ignore_index=True)
-                
-                # Get trade data files
-                trade_data_files = [file for file in os.listdir(market_folder) if "trade_data" in file and file.endswith(".csv")]
-                if trade_data_files:
-                    price_volume_data = pd.read_csv(os.path.join(market_folder, trade_data_files[0]))
-
-                    # Prepare dataframes
-                    bid_ask_df = pd.DataFrame(bid_ask_data, columns=["bidVolume", "bidPrice", "askVolume", "askPrice", "timestamp"])
-                    price_volume_df = pd.DataFrame(price_volume_data, columns=["price", "volume", "timestamp"])
-
-                    # Process timestamps and clean data
-                    bid_ask_df['timestamp'] = pd.to_datetime(bid_ask_df['timestamp'], format=timestamp_format, errors='coerce')
-                    price_volume_df['timestamp'] = pd.to_datetime(price_volume_df['timestamp'], format=timestamp_format, errors='coerce')
-                    bid_ask_df = bid_ask_df.dropna(subset=['timestamp'])
-                    price_volume_df = price_volume_df.dropna(subset=['timestamp'])
-
-                    # Sort data by timestamp
-                    bid_ask_df = bid_ask_df.sort_values('timestamp')
-                    price_volume_df = price_volume_df.sort_values('timestamp')
-
-                    # Merge dataframes based on timestamp
-                    merged_df = pd.merge_asof(price_volume_df, bid_ask_df, on='timestamp', direction='backward')
-                    # Accumulate the data from all periods and markets
-                    merged_df_all_periods = pd.concat([merged_df_all_periods, merged_df], ignore_index=True)
-
-                    print(f"Processed data for {market} in {period}.")
-                else:
-                    print(f"No trade data files found for {market} in {period}.")
-
-
-# Now train the model on the combined data from all periods and markets
-output_folder = "ModelOutput"  # You can define where the model output should be saved
-train_and_evaluate(merged_df_all_periods, model, output_folder)
-
-print("Training completed with data from all periods and markets.")
