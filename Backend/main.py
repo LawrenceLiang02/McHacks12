@@ -91,16 +91,19 @@ def predict_action(row):
             row_df = pd.DataFrame([row]) 
 
             # Feature engineering
-            row_df['smoothed_price'] = row_df['price'].rolling(window=10, min_periods=1).mean()
             row_df['spread'] = row_df['askPrice'] - row_df['bidPrice']
-            row_df['momentum'] = row_df['smoothed_price'] - row_df['smoothed_price'].shift(1)
-            row_df['volume_ratio'] = row_df['bidVolume'] / (row_df['askVolume'] + 1e-6)
 
-            # Fill NaN values that might result from rolling window or other calculations
-            row_df = row_df.fillna(0)
+            row_df['volume_ratio'] = row_df['bidVolume'] / (row_df['askVolume'] + 1e-6)
+            
+            # Calculate average price for a given second
+            row_df['timestamp_second'] = row_df['timestamp'].dt.floor('s')  # Round down timestamp to the nearest second
+            avg_price_per_second = row_df.groupby('timestamp_second')['price'].mean().reset_index(name='avg_price_per_second')
+            
+            # Merge the average price back into the row
+            row_df = pd.merge(row_df, avg_price_per_second, on='timestamp_second', how='left')
 
             # Ensure all required features are present
-            required_features = ['smoothed_price', 'spread', 'momentum', 'volume_ratio']
+            required_features = ['smoothed_price', 'spread', 'momentum', 'volume_ratio', 'avg_price_per_second']
             features = row_df[required_features].values.reshape(1, -1)
 
             # Convert features to DataFrame to ensure feature names match the model
